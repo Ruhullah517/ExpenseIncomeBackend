@@ -53,11 +53,31 @@ app.post('/signup', (req, res) => {
     const { email, password, name } = req.body;
     const hashedPassword = bcrypt.hashSync(password, 8);
 
+    // Insert user into the 'users' table
     db.query('INSERT INTO users (email, password, name) VALUES (?, ?, ?)', [email, hashedPassword, name], (err, result) => {
         if (err) return res.status(500).send('Server error');
-        res.status(201).send({ message: 'User created' });
+
+        const userId = result.insertId;
+
+        // Create personal account for the user
+        const createAccountSql = 'INSERT INTO accounts (admin_id) VALUES (?)';
+        db.query(createAccountSql, [userId], (err, accountResult) => {
+            if (err) return res.status(500).send('Error creating personal account');
+
+            const accountId = accountResult.insertId;
+
+            // Associate the user with the personal account in 'user_account' table
+            const associateUserSql = 'INSERT INTO user_account (user_id, account_id, role) VALUES (?, ?, ?)';
+            db.query(associateUserSql, [userId, accountId, 'admin'], (err) => {
+                if (err) return res.status(500).send('Error associating user with personal account');
+
+                // Send a single response after all operations are done
+                res.status(200).send('User and personal account created successfully');
+            });
+        });
     });
 });
+
 
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
@@ -86,16 +106,49 @@ app.get('/users/:id', (req, res) => {
 
 // Handle POST request to add expense
 app.post('/add-expense', upload.single('image'), (req, res) => {
-    const { name, amount, date, created_by, type } = req.body;
+    const { name, amount, date, created_by, type, account_id } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null; // Get the image path if available
     console.log(req.body);
-    const sql = 'INSERT INTO expenses (name, amount, date, created_by, type, image_path) VALUES (?, ?, ?, ?, ?, ?)';
-    db.query(sql, [name, amount, date, created_by, type, imagePath], (err, result) => {
+    const sql = 'INSERT INTO expenses (name, amount, date, created_by, type, image_path,account_id) VALUES (?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [name, amount, date, created_by, type, imagePath, account_id], (err, result) => {
         if (err) {
             console.error(err); // Add this to log the actual SQL error
             return res.status(500).send('Error inserting expense into database');
         }
         res.status(200).send('Expense added successfully');
+    });
+});
+
+// Assuming you have an endpoint to get account details by user ID
+app.get('/accounts/current/:userId', (req, res) => {
+    const userId = req.params.userId;
+
+    const sql = `SELECT a.id, a.admin_id 
+                 FROM accounts a
+                 JOIN user_account ua ON ua.account_id = a.id
+                 WHERE ua.user_id = ? AND ua.role = 'admin'`; // Adjust as needed based on your logic
+
+    db.query(sql, [userId], (err, results) => {
+        if (err) {
+            return res.status(500).send('Error fetching account details');
+        }
+        res.status(200).json(results); // Return account details
+    });
+});
+
+app.get('/accounts/:accountId/expenses', (req, res) => {
+    const { accountId } = req.params;
+
+    const sql = `
+        SELECT * FROM expenses 
+        WHERE account_id = ?
+    `;
+    db.query(sql, [accountId], (err, results) => {
+        if (err) {
+            return res.status(500).send('Error fetching expenses');
+        }
+        // console.log(results);
+        res.status(200).send(results);
     });
 });
 // Serve uploaded images statically
