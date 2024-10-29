@@ -15,7 +15,7 @@ app.use(express.json());
 app.use(bodyParser.json());
 // CORS configuration
 app.use(cors({
-    origin: 'http://192.168.18.158',  // Replace this with your mobile device's IP address
+    origin: '*',  // Replace this with your mobile device's IP address
     methods: 'GET,POST,PUT,DELETE',   // Specify the allowed HTTP methods
     credentials: true,                // If you're using cookies or auth headers
     optionsSuccessStatus: 200         // For legacy browser support
