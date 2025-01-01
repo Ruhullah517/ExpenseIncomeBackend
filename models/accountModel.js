@@ -2,7 +2,10 @@ const db = require('../config/db');
 
 const Account = {
     create: (adminId, callback) => {
-        db.query('INSERT INTO accounts (admin_id) VALUES (?)', [adminId], callback);
+        db.query('INSERT INTO accounts (admin_id) VALUES (?)', [adminId], (err, result) => {
+            if (err) return callback(err);
+            callback(null, result.insertId); // Return the new account ID
+        });
     },
     findById: (accountId, callback) => {
         db.query('SELECT * FROM accounts WHERE id = ?', [accountId], callback);
@@ -18,6 +21,13 @@ const Account = {
             if (err) return callback(err);
             callback(null, results.length > 0); // Returns true if the user is a member
         });
+    },
+    getAccountsByMemberId: (userId, callback) => {
+        db.query(`
+            SELECT a.* FROM accounts a
+            JOIN account_members am ON a.id = am.account_id
+            WHERE am.user_id = ?
+        `, [userId], callback);
     }
 };
 

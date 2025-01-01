@@ -16,12 +16,19 @@ exports.signup = (req, res) => {
 
             const userId = result.insertId;
 
-            Account.create(userId, (err) => {
+            Account.create(userId, (err, accountId) => {
                 if (err) {
                     console.error('Error creating account:', err);
                     return res.status(500).send('Error creating account');
                 }
-                res.status(201).send('User and account created successfully');
+
+                Account.addUserToAccount(accountId, userId, (err) => {
+                    if (err) {
+                        console.error('Error adding user to account:', err);
+                        return res.status(500).send('Error adding user to account');
+                    }
+                    res.status(201).send('User and account created successfully');
+                });
             });
         });
     });
